@@ -1,0 +1,69 @@
+Flight Delay Predictive Machine Learning Model
+========================================================
+author: Pete Schnettler
+date: 4/4/2016
+
+Flight Delay Predictive Machine Learning Model
+========================================================
+
+This application is using a glm machine learning algorithm to predict if a flight will be delayed based: on   
+
+- day of week,
+- airline,
+- origin and destination airports and
+- time of day
+
+The model was built using US Department of Transportation information
+
+The prediction model looks like
+========================================================
+
+```{r, eval=FALSE}
+origData <- read.csv2('https://pschnettnorthcentralus.blob.core.windows.net/downloads/FlightDelayDOT.csv', sep=",", header = TRUE, stringsAsFactors = FALSE)
+
+# That is a lot of rows to process so to speed thing up let's 
+#restrict data to only flight between certain large airports
+airports <- c('ATL', 'LAX', 'ORD', 'DFW', 'JFK', 'SFO', 'CLT', 'LAS', 'PHX')
+origData <- subset(origData, DEST %in% airports & ORIGIN %in% airports)
+
+origData$X <- NULL
+origData$ORIGIN_AIRPORT_SEQ_ID <- NULL
+origData$DEST_AIRPORT_SEQ_ID <- NULL
+origData$UNIQUE_CARRIER <- NULL
+```
+
+The prediction model looks like (cont.)
+========================================================
+
+```{r, eval=FALSE}
+# create vector contain row indicies to put into the training data frames
+inTrainRows <- createDataPartition(onTimeDataFiltered$ARR_DEL15, p=0.70, list=FALSE)
+# Create the training data frame
+trainDataFiltered <- onTimeDataFiltered[inTrainRows,]
+testDataFiltered <- onTimeDataFiltered[-inTrainRows,]
+logisticRegModel <- train(ARR_DEL15 ~ ., data=trainDataFiltered, method="glm", family="binomial", trControl=trainControl(method="cv", number=10, repeats=10))
+#Save the trained model so that it does not have to be retrained
+save(logisticRegModel, file = "flightDelayLogisticRegModel.RData")
+```
+
+Shiny application
+=======
+- The last line of the code above saves the trained model, to saving having to retrain the model each time the application is invoked
+
+```{r, eval=FALSE}
+# Load the trained model
+load("flightDelayLogisticRegModel.RData")
+library(caret)
+#   Predict using trained model against test data
+prediction <- function(DAY_OF_WEEK, CARRIER, DEST, ORIGIN, DEP_TIME_BLK) {
+                       predDF <- data.frame(cbind(DAY_OF_WEEK, CARRIER, DEST, ORIGIN, DEP_TIME_BLK))
+intPred <- predict(logisticRegModel, predDF)
+   if (intPred == '1.00') {
+     "DELAY OVER 15 MINS"
+   }
+  else {
+     "ON TIME"
+   }
+  }
+```
+
